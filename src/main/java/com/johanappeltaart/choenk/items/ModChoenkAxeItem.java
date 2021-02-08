@@ -4,11 +4,14 @@ import com.google.common.collect.ImmutableSet;
 import com.johanappeltaart.choenk.Choenk;
 import com.johanappeltaart.choenk.util.WorldUtils;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import javafx.scene.effect.Effect;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.EquipmentSlotType;
 import net.minecraft.item.IItemTier;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -21,9 +24,13 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
+import net.minecraft.stats.Stats;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraftforge.common.ForgeHooks;
 
 import java.util.Set;
 
@@ -52,10 +59,74 @@ public class ModChoenkAxeItem extends ToolItem{
     }
 
     @Override
-    public boolean onBlockStartBreak(ItemStack itemstack, BlockPos pos, PlayerEntity player) {
-        return false;
+    public boolean onBlockStartBreak(ItemStack stack, BlockPos pos, PlayerEntity player) {
+        World world = player.world;
+        if (!world.isRemote && !player.isCreative()) {
+//            IEnergyContainer energyContainer = StorageUtils.getEnergyContainer(stack, 0);
+//            if (energyContainer == null) {
+//                //If something went wrong and we don't have an energy container, just go to super
+//                return super.onBlockStartBreak(stack, pos, player);
+//            }
+//            DisassemblerMode mode = getMode(stack);
+//            boolean extended = mode == DisassemblerMode.EXTENDED_VEIN;
+//            if (extended || mode == DisassemblerMode.VEIN) {
+            if(true){
+                BlockState state = world.getBlockState(pos);
+//                if (state.getBlock() instanceof BlockBounding) {
+//                    //Even though we now handle breaking bounding blocks properly, don't allow vein mining
+//                    // them as an added safety measure
+//                    return super.onBlockStartBreak(stack, pos, player);
+//                }
+                //If it is extended or should be treated as an ore
+                if (true || EFFECTIVE_ON.contains(state)) {
+                    ServerPlayerEntity serverPlayerEntity = (ServerPlayerEntity) player;
+                    List<BlockPos> found = findPositions(state, pos, world, true ? 128 : -1);
+                    for (BlockPos foundPos : found) {
+                        if (pos.equals(foundPos)) {
+                            continue;
+                        }
+                        BlockState foundState = world.getBlockState(foundPos);
+//                        FloatingLong destroyEnergy = getDestroyEnergy(stack, foundState.getBlockHardness(world, foundPos));
+//                        if (energyContainer.extract(destroyEnergy, Action.SIMULATE, AutomationType.MANUAL).smallerThan(destroyEnergy)) {
+                        if(false){
+                            //If we don't have energy to break the block continue
+                            //Note: We do not break as given the energy scales with hardness, so it is possible we still have energy to break another block
+                            // Given we validate the blocks are the same but their block states may be different thus making them have different
+                            // block hardness values in a modded context
+                            continue;
+                        }
+                        int exp = ForgeHooks.onBlockBreakEvent(world, serverPlayerEntity.interactionManager.getGameType(), serverPlayerEntity, foundPos);
+                        if (exp == -1) {
+                            //If we can't actually break the block continue (this allows mods to stop us from vein mining into protected land)
+                            continue;
+                        }
+                        //Otherwise break the block
+                        Block block = foundState.getBlock();
+                        //Get the tile now so that we have it for when we try to harvest the block
+                        TileEntity tileEntity = WorldUtils.getTileEntity(world, foundPos);
+                        //Remove the block
+                        boolean removed = foundState.removedByPlayer(world, foundPos, player, true, foundState.getFluidState());
+                        if (removed) {
+                            block.onPlayerDestroy(world, foundPos, foundState);
+                            //Harvest the block allowing it to handle block drops, incrementing block mined count, and adding exhaustion
+                            block.harvestBlock(world, player, foundPos, foundState, tileEntity, stack);
+                            player.addStat(Stats.ITEM_USED.get(this));
+                            if (exp > 0) {
+                                //If we have xp drop it
+                                block.dropXpOnBlockBreak((ServerWorld) world, foundPos, exp);
+                            }
+                            stack.damageItem(1, player, (entity) -> {
+                                entity.sendBreakAnimation(EquipmentSlotType.MAINHAND);
+                            });
+                            //Use energy
+//                            energyContainer.extract(destroyEnergy, Action.EXECUTE, AutomationType.MANUAL);
+                        }
+                    }
+                }
+            }
+        }
+        return super.onBlockStartBreak(stack, pos, player);
     }
-
     private static List<BlockPos> findPositions(BlockState state, BlockPos location, World world, int maxRange) {
         Choenk.LOGGER.info("FINDS INBNANANA BANANA");
         List<BlockPos> found = new ArrayList<>();
