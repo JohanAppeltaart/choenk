@@ -4,13 +4,17 @@ import java.util.function.Supplier;
 import net.minecraft.item.IItemTier;
 import net.minecraft.item.Items;
 import net.minecraft.item.crafting.Ingredient;
+import net.minecraft.tags.ItemTags;
 
 public enum ModItemTier implements IItemTier {
 
-        WOOD(5, 30, 80.0f, 10.0f, 15, () -> {
+    QUICK(5, 30, 80.0f, 10.0f, 15, () -> {
             return Ingredient.fromItems(Items.OAK_WOOD);
 //            return Ingredient.fromItems(ModItems.BANANA_IRON.get());
-        });
+    }),
+    WOOD(0, 59, 2.0F, 0.0F, 15, () -> {
+        return Ingredient.fromTag(ItemTags.PLANKS);
+    });
 
         private final int harvestLevel;
         private final int maxUses;
