@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class Choenk
 {
     // Directly reference a log4j logger.
-    private static final Logger LOGGER = LogManager.getLogger();
+    public static final Logger LOGGER = LogManager.getLogger();
     public static final String MOD_ID = "choenk";
 
     public Choenk() {

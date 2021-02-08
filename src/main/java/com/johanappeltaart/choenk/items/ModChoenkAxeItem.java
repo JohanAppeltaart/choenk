@@ -1,20 +1,29 @@
 package com.johanappeltaart.choenk.items;
 
 import com.google.common.collect.ImmutableSet;
+import com.johanappeltaart.choenk.Choenk;
+import com.johanappeltaart.choenk.util.WorldUtils;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.IItemTier;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ToolItem;
 import com.google.common.collect.ImmutableSet;
-import java.util.Set;
+
+import java.util.*;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.world.World;
 
 import java.util.Set;
 
@@ -40,5 +49,44 @@ public class ModChoenkAxeItem extends ToolItem{
     public float getDestroySpeed(ItemStack stack, BlockState state) {
         Material material = state.getMaterial();
         return material != Material.IRON && material != Material.ANVIL && material != Material.ROCK ? super.getDestroySpeed(stack, state) : this.efficiency;
+    }
+
+    @Override
+    public boolean onBlockStartBreak(ItemStack itemstack, BlockPos pos, PlayerEntity player) {
+        return false;
+    }
+
+    private static List<BlockPos> findPositions(BlockState state, BlockPos location, World world, int maxRange) {
+        Choenk.LOGGER.info("FINDS INBNANANA BANANA");
+        List<BlockPos> found = new ArrayList<>();
+        Set<BlockPos> checked = new ObjectOpenHashSet<>();
+        found.add(location);
+        Block startBlock = state.getBlock();
+//        int maxCount = MekanismConfig.gear.disassemblerMiningCount.get() - 1;
+        int maxCount = 128;
+        for (int i = 0; i < found.size(); i++) {
+            BlockPos blockPos = found.get(i);
+            checked.add(blockPos);
+            for (BlockPos pos : BlockPos.getAllInBoxMutable(blockPos.add(-1, -1, -1), blockPos.add(1, 1, 1))) {
+                //We can check contains as mutable
+                if (!checked.contains(pos)) {
+                    if (maxRange == -1 || WorldUtils.distanceBetween(location, pos) <= maxRange) {
+                        Optional<BlockState> blockState = WorldUtils.getBlockState(world, pos);
+                        if (blockState.isPresent() && startBlock == blockState.get().getBlock()) {
+                            //Make sure to add it as immutable
+                            found.add(pos.toImmutable());
+                            //Note: We do this for all blocks we find/attempt to mine, not just ones we do mine, as it is a bit simpler
+                            // and also represents those blocks getting checked by the vein mining for potentially being able to be mined
+//                            Mekanism.packetHandler.sendToAllTracking(new PacketLightningRender(LightningPreset.TOOL_AOE, Objects.hash(blockPos, pos),
+//                                    Vector3d.copyCentered(blockPos), Vector3d.copyCentered(pos), 10), world, blockPos);
+                            if (found.size() > maxCount) {
+                                return found;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return found;
     }
 }
