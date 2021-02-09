@@ -9,6 +9,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.EquipmentSlotType;
@@ -27,8 +28,10 @@ import net.minecraft.block.material.Material;
 import net.minecraft.stats.Stats;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.common.ForgeHooks;
 
@@ -48,9 +51,11 @@ public class ModChoenkAxeItem extends ToolItem{
         int i = this.getTier().getHarvestLevel();
         if (blockIn.getHarvestTool() == net.minecraftforge.common.ToolType.PICKAXE) {
             return i >= blockIn.getHarvestLevel();
+        }else{
+            return true;
         }
-        Material material = blockIn.getMaterial();
-        return material == Material.ROCK || material == Material.IRON || material == Material.ANVIL;
+//        Material material = blockIn.getMaterial();
+//        return material == Material.ROCK || material == Material.IRON || material == Material.ANVIL;
     }
 
     public float getDestroySpeed(ItemStack stack, BlockState state) {
@@ -59,45 +64,46 @@ public class ModChoenkAxeItem extends ToolItem{
     }
 
     @Override
-    public boolean onBlockStartBreak(ItemStack stack, BlockPos pos, PlayerEntity player) {
+    public boolean onBlockStartBreak(ItemStack stack, BlockPos StartBlockpos, PlayerEntity player) {
         World world = player.world;
-        if (!world.isRemote && !player.isCreative()) {
+        if (!world.isRemote && !player.isCreative()&&canHarvestBlock(world.getBlockState(StartBlockpos))) {
 //            IEnergyContainer energyContainer = StorageUtils.getEnergyContainer(stack, 0);
 //            if (energyContainer == null) {
 //                //If something went wrong and we don't have an energy container, just go to super
-//                return super.onBlockStartBreak(stack, pos, player);
+//                return super.onBlockStartBreak(stack, StartBlockpos, player);
 //            }
 //            DisassemblerMode mode = getMode(stack);
 //            boolean extended = mode == DisassemblerMode.EXTENDED_VEIN;
 //            if (extended || mode == DisassemblerMode.VEIN) {
-            if(true){
-                BlockState state = world.getBlockState(pos);
+//            if(true){
+                BlockState state = world.getBlockState(StartBlockpos);
 //                if (state.getBlock() instanceof BlockBounding) {
 //                    //Even though we now handle breaking bounding blocks properly, don't allow vein mining
 //                    // them as an added safety measure
-//                    return super.onBlockStartBreak(stack, pos, player);
+//                    return super.onBlockStartBreak(stack, StartBlockpos, player);
 //                }
                 //If it is extended or should be treated as an ore
-                if (true || EFFECTIVE_ON.contains(state)) {
+//                if (true || EFFECTIVE_ON.contains(state)) {
                     ServerPlayerEntity serverPlayerEntity = (ServerPlayerEntity) player;
-                    List<BlockPos> found = findPositions(state, pos, world, true ? 128 : -1);
+                    List<BlockPos> found = findPositions(state, StartBlockpos, world, -1);
                     for (BlockPos foundPos : found) {
-                        if (pos.equals(foundPos)) {
+                        if (StartBlockpos.equals(foundPos)) {
                             continue;
                         }
                         BlockState foundState = world.getBlockState(foundPos);
 //                        FloatingLong destroyEnergy = getDestroyEnergy(stack, foundState.getBlockHardness(world, foundPos));
 //                        if (energyContainer.extract(destroyEnergy, Action.SIMULATE, AutomationType.MANUAL).smallerThan(destroyEnergy)) {
-                        if(false){
+//                        if(false){
                             //If we don't have energy to break the block continue
                             //Note: We do not break as given the energy scales with hardness, so it is possible we still have energy to break another block
                             // Given we validate the blocks are the same but their block states may be different thus making them have different
                             // block hardness values in a modded context
-                            continue;
-                        }
+//                            continue;
+//                        }
                         int exp = ForgeHooks.onBlockBreakEvent(world, serverPlayerEntity.interactionManager.getGameType(), serverPlayerEntity, foundPos);
                         if (exp == -1) {
                             //If we can't actually break the block continue (this allows mods to stop us from vein mining into protected land)
+//                            Choenk.LOGGER.info("protected land");
                             continue;
                         }
                         //Otherwise break the block
@@ -115,35 +121,47 @@ public class ModChoenkAxeItem extends ToolItem{
                                 //If we have xp drop it
                                 block.dropXpOnBlockBreak((ServerWorld) world, foundPos, exp);
                             }
-                            stack.damageItem(1, player, (entity) -> {
-                                entity.sendBreakAnimation(EquipmentSlotType.MAINHAND);
-                            });
+
                             //Use energy
 //                            energyContainer.extract(destroyEnergy, Action.EXECUTE, AutomationType.MANUAL);
                         }
                     }
-                }
+//                }
             }
-        }
-        return super.onBlockStartBreak(stack, pos, player);
+//        }
+        return super.onBlockStartBreak(stack, StartBlockpos, player);
     }
-    private static List<BlockPos> findPositions(BlockState state, BlockPos location, World world, int maxRange) {
+    //use 1 durability per chunk.
+//    @Override
+//    public boolean onBlockDestroyed(ItemStack stack, World worldIn, BlockState state, BlockPos pos, LivingEntity entityLiving) {
+//        stack.damageItem(1, entityLiving, (entity) -> {
+//            entity.sendBreakAnimation(EquipmentSlotType.MAINHAND);
+//        });
+//        return super.onBlockDestroyed(stack, worldIn, state, pos, entityLiving);
+//    }
+
+    private List<BlockPos> findPositions(BlockState state, BlockPos location, World world, int maxRange) {
         Choenk.LOGGER.info("FINDS INBNANANA BANANA");
         List<BlockPos> found = new ArrayList<>();
         Set<BlockPos> checked = new ObjectOpenHashSet<>();
         found.add(location);
         Block startBlock = state.getBlock();
+        ChunkPos startChunk = world.getChunkAt(location).getPos();
 //        int maxCount = MekanismConfig.gear.disassemblerMiningCount.get() - 1;
-        int maxCount = 128;
-        for (int i = 0; i < found.size(); i++) {
-            BlockPos blockPos = found.get(i);
+        int maxCount = 65280;
+//        for (int i = 0; i < found.size(); i++) { runonce
+//            BlockPos blockPos = found.get(i);runonce
+            BlockPos blockPos = found.get(0);
             checked.add(blockPos);
             for (BlockPos pos : BlockPos.getAllInBoxMutable(blockPos.add(-1, -1, -1), blockPos.add(1, 1, 1))) {
                 //We can check contains as mutable
                 if (!checked.contains(pos)) {
-                    if (maxRange == -1 || WorldUtils.distanceBetween(location, pos) <= maxRange) {
+//                    if (maxRange == -1 || WorldUtils.distanceBetween(location, pos) <= maxRange) {//true
                         Optional<BlockState> blockState = WorldUtils.getBlockState(world, pos);
-                        if (blockState.isPresent() && startBlock == blockState.get().getBlock()) {
+//                        if (blockState.isPresent() && startBlock == blockState.get().getBlock()) {
+                        //29013888888120348549023902349049023849023849023849023===================================================
+                        if (blockState.isPresent()&& canHarvestBlock(blockState.get())&&startChunk==world.getChunkAt(pos).getPos()) {
+                            //===========
                             //Make sure to add it as immutable
                             found.add(pos.toImmutable());
                             //Note: We do this for all blocks we find/attempt to mine, not just ones we do mine, as it is a bit simpler
@@ -151,13 +169,19 @@ public class ModChoenkAxeItem extends ToolItem{
 //                            Mekanism.packetHandler.sendToAllTracking(new PacketLightningRender(LightningPreset.TOOL_AOE, Objects.hash(blockPos, pos),
 //                                    Vector3d.copyCentered(blockPos), Vector3d.copyCentered(pos), 10), world, blockPos);
                             if (found.size() > maxCount) {
+                                Choenk.LOGGER.info("more than maxcount count /size");
+                                Choenk.LOGGER.info(maxCount);
+                                Choenk.LOGGER.info(found.size());
+                                //limit is 10
+//                                Choenk.LOGGER.info(found.toString());
                                 return found;
                             }
                         }
-                    }
+//                    }
                 }
             }
-        }
+//        }runonce
         return found;
     }
+
 }
